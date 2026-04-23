@@ -4,6 +4,11 @@ from app.github_client import fetch_diff, clone_repo
 from app.diff_parser import parse_diff, get_changed_files
 from app.impact_analyzer import analyze_impact
 from app.rag import index_repo, retrieve_relevant_chunks, generate_review
+from app.commenter import post_or_update_comment
+from app.database import save_review, init_db
+
+# Make sure DB exists on startup
+init_db()
 
 async def handle_pull_request(payload: dict):
     installation_id = payload["installation"]["id"]
@@ -17,7 +22,6 @@ async def handle_pull_request(payload: dict):
 
     print(f"\n🔍 Analyzing PR #{pr_number} on {repo}: '{pr_title}'")
 
-    # Phase 2: diff parsing + impact analysis
     raw_diff = fetch_diff(diff_url, token)
     hunks = parse_diff(raw_diff)
     changed_files = get_changed_files(hunks)
@@ -28,7 +32,6 @@ async def handle_pull_request(payload: dict):
         impact = analyze_impact(changed_files, repo_path)
         print(f"   Impacted files: {impact.directly_impacted}")
 
-        # Phase 3: index the repo + retrieve relevant chunks
         print(f"   Indexing repo...")
         index_repo(repo_path, repo)
 
@@ -38,9 +41,8 @@ async def handle_pull_request(payload: dict):
         diff_summary=diff_summary,
         repo_name=repo,
     )
-    print(f"   Retrieved {len(relevant_chunks)} relevant chunks from vector DB")
+    print(f"   Retrieved {len(relevant_chunks)} relevant chunks")
 
-    # Generate review
     print(f"   Generating review with LLM...")
     review = generate_review(
         pr_title=pr_title,
@@ -51,10 +53,24 @@ async def handle_pull_request(payload: dict):
     )
 
     print(f"\n📝 Review generated:")
-    print(f"   Summary:   {review.get('summary')}")
-    print(f"   Risks:     {review.get('risks')}")
+    print(f"   Summary:     {review.get('summary')}")
+    print(f"   Risks:       {review.get('risks')}")
     print(f"   Suggestions: {review.get('suggestions')}")
-    print(f"   Tests:     {review.get('test_coverage')}")
-    # print(f"\n✅ Phase 3 complete for PR #{pr_number}")
+    print(f"   Tests:       {review.get('test_coverage')}")
 
-    # Phase 4 will post this as a GitHub comment
+    # Phase 4: post to GitHub
+    print(f"\n📮 Posting review to GitHub...")
+    action = post_or_update_comment(repo, pr_number, review, token)
+    print(f"   Comment {action} on PR #{pr_number}")
+
+    # Phase 5: save to database for evaluation
+    review_id = save_review(
+        repo=repo,
+        pr_number=pr_number,
+        pr_title=pr_title,
+        changed_files=changed_files,
+        impacted_files=impact.directly_impacted,
+        review=review,
+    )
+    print(f"   💾 Review saved to database (id={review_id})")
+    print(f"\n✅ Done — PR #{pr_number} fully reviewed")

@@ -10,6 +10,7 @@ from qdrant_client.models import (
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 from app.chunker import chunk_repo
+from qdrant_client.models import SearchRequest
 
 load_dotenv()
 
@@ -24,7 +25,10 @@ groq_client = OpenAI(
 # Downloads ~90MB on first run, then cached locally forever
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-qdrant = QdrantClient(host="localhost", port=6333)
+qdrant = QdrantClient(
+    host=os.getenv("QDRANT_HOST", "localhost"),
+    port=int(os.getenv("QDRANT_PORT", 6333))
+)
 
 COLLECTION = "code_chunks"
 EMBED_DIM = 384  # dimension of all-MiniLM-L6-v2 vectors
@@ -106,8 +110,7 @@ def retrieve_relevant_chunks(
     changed_files: list[str],
     diff_summary: str,
     repo_name: str,
-    top_k: int = 5
-) -> list[dict]:
+    top_k: int = 5) -> list[dict]:
     """
     Finds the most semantically similar code chunks to the diff.
     Returns empty list gracefully if collection is empty.
@@ -122,9 +125,10 @@ def retrieve_relevant_chunks(
 
     query_vector = embed(diff_summary)
 
-    results = qdrant.search(
+
+    results = qdrant.query_points(
         collection_name=COLLECTION,
-        query_vector=query_vector,
+        query=query_vector,
         query_filter=Filter(
             must=[FieldCondition(
                 key="repo",
@@ -132,8 +136,7 @@ def retrieve_relevant_chunks(
             )]
         ),
         limit=top_k,
-        with_payload=True,
-    )
+        with_payload=True,).points
 
     return [hit.payload for hit in results]
 
