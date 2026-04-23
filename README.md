@@ -1,4 +1,4 @@
-# Code Review Assistant
+# PR Review Assistant
 
 A GitHub App that automatically reviews pull requests using RAG over your codebase, AST-based impact analysis, and an LLM — with an evaluation harness that measures suggestion precision over time.
 
