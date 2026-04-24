@@ -117,7 +117,7 @@ code-review-assistant/
 ### 2. Clone and configure
 
 ```bash
-git clone https://github.com/yourusername/code-review-assistant
+git clone https://github.com/bhanupragnyaneu/code-review-assistant
 cd code-review-assistant
 pip install -r requirements.txt
 ```
