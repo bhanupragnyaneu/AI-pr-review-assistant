@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+python-dotenv
+PyJWT
+cryptography
+requests
+qdrant-client
+sentence-transformers
+openai
+sqlalchemy
+streamlit
+pandas
+tiktoken
+groq
+tree-sitter
+tree-sitter-python
+psycopg2-binary
